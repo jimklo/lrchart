@@ -12,7 +12,7 @@ function(doc) {
         cleanKey = cleanKey.replace(/^\s+/, "");
         cleanKey = cleanKey.replace(/\s+$/, "");
         if (!history[cleanKey]) {
-            emit([cleanKey, date_stamp], null);
+            emit([date_stamp,cleanKey], null);
             history[cleanKey] = true;
         }
     }

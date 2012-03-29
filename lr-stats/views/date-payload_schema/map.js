@@ -9,7 +9,7 @@ function(doc) {
     for each(var schema in doc.payload_schema) {
         var clean_schema = schema.toLowerCase().trim();
         if (!history[clean_schema]) {
-            emit([clean_schema, date_stamp], null);
+            emit([date_stamp,clean_schema], 1);
             history[clean_schema] = true;
         }
     }
