@@ -1,14 +1,19 @@
 function(doc) {
 
     if (doc.doc_type != "resource_data" || !doc.node_timestamp) return;
-    
-    var date_stamp = doc.node_timestamp;
-    date_stamp = date_stamp.substring(0,10);
 
+    // !code lib/utils.js
+    
+    var date_stamp = convertDateToMillis(doc.node_timestamp.substring(0,10));
+
+    var history = {};
     for each(var key in doc.keys) {
         var cleanKey = key.toLowerCase();
         cleanKey = cleanKey.replace(/^\s+/, "");
         cleanKey = cleanKey.replace(/\s+$/, "");
-        emit([cleanKey, date_stamp], 1);
+        if (!history[cleanKey]) {
+            emit([cleanKey, date_stamp], null);
+            history[cleanKey] = true;
+        }
     }
 }
