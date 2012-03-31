@@ -1,0 +1,31 @@
+div.treeMap {
+    width: 1000px;
+    height: 800px;
+    float: left;
+}
+
+div.status {
+    width: 1100px;
+}
+
+#tooltip {
+    display: none;
+    z-index:10;
+    background-color: #CCC;
+    position: fixed;
+}
+
+#tooltip.on {
+    display: block;
+}
+
+div.info {
+    width: 600px;
+    display: block;
+    float: right;
+}
+
+div.clear {
+    clear: both;
+}
+

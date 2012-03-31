@@ -4,7 +4,7 @@ function(doc) {
 
     // !code lib/utils.js
     
-    var date_stamp = convertDateToMillis(doc.node_timestamp.substring(0,10));
+    var date_stamp = (new Date(doc.node_timestamp.substring(0,10))).getYearMonth();
 
     var history = {};
     for each(var key in doc.keys) {
@@ -12,7 +12,7 @@ function(doc) {
         cleanKey = cleanKey.replace(/^\s+/, "");
         cleanKey = cleanKey.replace(/\s+$/, "");
         if (!history[cleanKey]) {
-            emit([cleanKey, date_stamp], null);
+            emit([date_stamp,cleanKey], null);
             history[cleanKey] = true;
         }
     }

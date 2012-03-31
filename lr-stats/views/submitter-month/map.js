@@ -5,6 +5,6 @@ function(doc) {
     // !code lib/utils.js
     
     if(doc.identity.submitter && doc.node_timestamp) {
-        emit([doc.identity.submitter, convertDateToMillis(doc.node_timestamp.substring(0,10))], null);
+        emit([new Date(doc.node_timestamp.substring(0,10)).getYearWeek(), doc.identity.submitter], null);
     }
 }

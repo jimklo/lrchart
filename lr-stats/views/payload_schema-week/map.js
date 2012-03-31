@@ -4,12 +4,12 @@ function(doc) {
     
     // !code lib/utils.js
     
-    var date_stamp = convertDateToMillis(doc.node_timestamp.substring(0,10));
+    var date_stamp = new Date(doc.node_timestamp.substring(0,10)).getYearWeek();
     var history = {};
     for each(var schema in doc.payload_schema) {
         var clean_schema = schema.toLowerCase().trim();
         if (!history[clean_schema]) {
-            emit([clean_schema, date_stamp], null);
+            emit([date_stamp,clean_schema], 1);
             history[clean_schema] = true;
         }
     }

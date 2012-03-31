@@ -1,7 +1,7 @@
 //Count by schema format. Count total. Count by creator. Count by submitter. Count by keyword.
 (function($) {
 	var dataTables = {};
-	var services = [{svc:'submitter', x: 800, y: 600}, {svc:'payload_schema', x: 800, y: 600}, {svc:'curator', x: 800, y: 600}, {svc:'keyword', x: 800, y: 1000}]; //, 'keyword'];
+	var services = [{svc:'submitter', x: 1200, y: 1000}, {svc:'payload_schema', x: 1200, y: 1000}, {svc:'curator', x: 1200, y: 1000}, {svc:'keyword', x: 1200, y: 3000}]; //, 'keyword'];
 	//var services = ['keyword'];//, 'keyword'];
 	var resultCount = 0;
 	var NODE_URL = "http://127.0.0.1:5984";
@@ -13,12 +13,26 @@
 	var charts = {};
 	var options = {};
 	var MAX_ROWS = 15;
+	var MAX_WEEKS = 25;
 	var MILLIS_PER_DAY = 86400000;
 	google.load("visualization", "1", {
-		packages: ["corechart"]
+		packages: ["corechart", "treemap"]
 	});
 
-	google.setOnLoadCallback(init);
+	google.setOnLoadCallback(initTreeMap);
+
+	Date.prototype.getWeek = function() {
+	    var onejan = new Date(this.getFullYear(),0,1);
+	    return Math.ceil((((this - onejan) / MILLIS_PER_DAY) + onejan.getDay()+1)/7);
+	}
+
+	Date.prototype.getYearWeek = function() {
+	    return (this.getFullYear() * 100) + this.getWeek();
+	}
+
+	Date.prototype.getYearMonth = function() {
+	    return (this.getFullYear() * 100) + this.getMonth() + 1;
+	}
 
 	function debug2(msg) {
 		$('#debug2').html(msg + "<br>");
@@ -28,6 +42,53 @@
 		$('#debug').append(msg + "<br>");
 
 	}
+	function initTreeMap() {
+		$.couch.urlPrefix = NODE_URL;
+		$.couch.defaultAjaxOpts = {
+			dataType: 'jsonp',
+			jsonp: 'callback'
+		};
+
+		$.each(services, function(index, servInfo) {
+			var service = servInfo.svc;
+			options[service] = {
+				title: 'Learning Registry Usage Stats - ' + service,
+				headerHeight: 15,
+				fontColor: 'black',
+				showScale: true
+			};
+			dataTables[service] = new google.visualization.DataTable();
+			dataTables[service].addColumn('string', 'Term');
+			dataTables[service].addColumn('string', 'Range');
+			dataTables[service].addColumn('number', 'Total');
+			dataTables[service].addColumn('number', 'Frequency');
+
+			var div_name = 'chart-' + service;
+			var div_status = 'status-' + service;
+			$('#charts').append('<div id="'+service+'_box" class="chart_box"><div id="'+div_status+'" class="status">Updating!</div><div id="' + div_name + '" class="treeMap"></div><div class="info"></div><div class="clear"/></div>');
+			charts[service] = new google.visualization.TreeMap(document.getElementById(div_name));
+			drawChart(service);
+
+
+			google.visualization.events.addListener(charts[service], 'onmouseover', function(rowIndex) {
+				// console.log(JSON.stringify(rowIndex));
+				var term = dataTables[service].getValue(rowIndex.row, 0);
+				var count = dataTables[service].getValue(rowIndex.row, 2);
+				// console.log(term + ": "+ count);
+				$('#'+service+'_box div.info').html('<b>'+term+'</b><br/>Count: '+count);
+				// console.log(JSON.stringify(dataTables[service].getRowProperties(rowIndex.row)));
+				// console.log($('#'+service+'_box div.info').html());
+			});
+
+
+			google.visualization.events.addListener(charts[service], 'onmouseout', function(rowIndex) {
+				$('#'+service+'_box div.info').html('');
+				// console.log("tooltip off");
+			});
+			startLoadingData(service);
+		});
+	}
+
 
 	function init() {
 		$.couch.urlPrefix = NODE_URL;
@@ -49,15 +110,37 @@
 				},
 				hAxis: {
 					logScale:true
+				},
+				legend: {
+					position: 'none'
 				}
 			};
 			dataTables[service] = new google.visualization.DataTable();
 			dataTables[service].addColumn('string', 'Term');
-			dataTables[service].addColumn('number', '< 30 days');
-			dataTables[service].addColumn('number', '30-60 days');
-			dataTables[service].addColumn('number', '60-90 days');
-			dataTables[service].addColumn('number', '90-120 days');
-			dataTables[service].addColumn('number', '120-150 days');
+			
+			var dateToday = new Date();
+			var today = $.date();
+			var form = "yyyy-MM-dd";
+
+			var weekOf = today.adjust("D", -dateToday.getDay());
+			var weekEnding = weekOf.clone().adjust("D", 6);
+
+
+			for (var i=0; i<MAX_WEEKS; i++) {
+				var mesg = " weeks ago";
+				if (i===0) {
+					mesg = "This week";
+				} else if (i===1) {
+					mesg = "1 week ago";
+				} else {
+					mesg = i + mesg;
+				}
+
+				dataTables[service].addColumn('number', weekOf.format(form) + " - "+ weekEnding.format(form));
+				weekOf.adjust("D", -7);
+				weekEnding.adjust("D", -7);
+			}
+			
 			var div_name = 'chart-' + service;
 			var div_status = 'status-' + service;
 			$('#charts').append('<div id="'+div_status+'">Updating!</div><div id="' + div_name + '"></div>');
@@ -78,113 +161,9 @@
 
 	function startLoadingData(service) {
 		// callStats(service);
-		buildDateBins(service);
+		// buildDateBins(service);
+		buildTreeMap(service);
 	}
-
-
-	// function callStats(service) {
-	// 	$.couch.db(NODE_DB).list(getList("top-by-date"), "date-"+service, {
-	// 		reduce: true,
-	// 		group: true,
-	// 		group_level: 1,
-	// 		top_limit: MAX_ROWS,
-	// 		success: function(ajaxData) {
-	// 			buildData(ajaxData, service);
-	// 		},
-	// 		error: function(jqXHR, textStatus, errorThrown) {
-	// 			debug("ajax error: " + errorThrown);
-	// 			debug("ajax error textStatus: " + textStatus);
-	// 			debug("ajax error jqXHR: " + JSON.stringify(jqXHR));
-	// 		}
-	// 	});
-	// }
-
-	//// JOHN"S ORIGINIAL DESIGN
-	// function callStats(service) {
-	// 	$.couch.db(NODE_DB).view(getView(service), {
-	// 		reduce: true,
-	// 		group: true,
-	// 		group_level: 1,
-	// 		success: function(ajaxData) {
-	// 			buildData(ajaxData, service);
-	// 		},
-	// 		error: function(jqXHR, textStatus, errorThrown) {
-	// 			debug("ajax error: " + errorThrown);
-	// 			debug("ajax error textStatus: " + textStatus);
-	// 			debug("ajax error jqXHR: " + JSON.stringify(jqXHR));
-	// 		}
-	// 	});
-	// }
-
-	// function buildData(ajaxData, service) {
-
-	// 	var rows = ajaxData.rows;
-	// 	var chartRows = [];
-
-	// 	//reverse sort by val
-
-
-	// 	function compareRows(row1, row2) {
-	// 		return row1.val - row2.val;
-	// 	}
-
-	// 	function insertRow(row) {
-	// 		var nextRow = chartRows[MAX_ROWS - 2];
-	// 		if (!nextRow) {
-	// 			debug("last row does not exist");
-	// 			return;
-	// 		}
-	// 		if (row.val < nextRow.val) {
-	// 			return;
-	// 		}
-	// 		var insertIndex = -1;
-	// 		$.each(chartRows, function(index, row) {
-	// 			nextRow = chartRows[index];
-	// 			if (nextRow) {
-	// 				var compare = compareRows(row, nextRow);
-	// 				if (compare >= 0) {
-	// 					insertIndex = index;
-	// 					return false;
-	// 				}
-	// 			} else {
-	// 				debug("no next row for index: " + index);
-	// 			}
-	// 		});
-	// 		if (insertIndex >= 0) {
-	// 			chartRows.splice(insertIndex, 0, row);
-	// 			chartRows = chartRows.slice(0, MAX_ROWS - 1);
-	// 		}
-	// 	}
-
-	// 	var TEST_MAX = 100000;
-	// 	$.each(rows, function(index, row) {
-	// 		if (row.key && row.value) {
-	// 			var chartRow = {
-	// 				key: row.key[0],
-	// 				val: row.value
-	// 			};
-	// 			if (index < MAX_ROWS) {
-	// 				chartRows.push(chartRow);
-	// 			} else if (index == MAX_ROWS) {
-	// 				chartRows.push(chartRow);
-	// 				chartRows.sort(compareRows);
-	// 			} else if (index < TEST_MAX) {
-	// 				insertRow(chartRow);
-	// 			} else {
-	// 				return false;
-	// 			}
-	// 		}
-	// 	});
-	// 	if (rows.length > MAX_ROWS) {
-	// 		options[service].title = 'Learning Registry Usage Stats - ' + service + ', Top ' + MAX_ROWS + " of " + rows.length;
-	// 	} else {
-	// 		options[service].title = 'Learning Registry Usage Stats - ' + service;
-	// 	}
-
-	// 	chartRows.sort(compareRows);
-
-	// 	buildDateBins(chartRows, service);
-	// }
 
 	// http://127.0.0.1:5984/resource_data/_design/lrstats-payload_schema/_view/docs?reduce=true&group=true&group_level=2
 	/*
@@ -199,54 +178,50 @@ http://127.0.0.1:5984/resource_data/_design/lrstats-payload_schema/_view/docs?st
  * 
  * 
  */
- 	function convertAge(millis) {
- 		return millis/MILLIS_PER_DAY;
- 	}
 
-	function buildDateBins(service) {
-		var dateBinnedData = {};
+function buildTreeMap(service) {
+		var treeMapData = {};  // { term: { total: xx, range: [date, value] } } 
+
+
 		var resultCount = 0;
 
 		// var dateBins = [];
 		var form = "yyyy-MM-dd";
 		var today = $.date();
-		
-		var endKey = [convertDateToMillis(today.format(form)),{}];
-		// var startKey = [today.adjust("D", -90).format(form)];
-		var startKey = [0];
+		var todaysDate =  new Date(today.format(form));
+		var todaysYearWeek = todaysDate.getYearWeek();
 
-		// var dateBins = [
-		// 	convertDateToMillis(today.format(form)),					// today
-		// 	convertDateToMillis(today.adjust("D", -30).format(form)),	// -30 days
-		// 	convertDateToMillis(today.adjust("D", -1).format(form)),	// -31 days
-		// 	convertDateToMillis(today.adjust("D", -30).format(form)),	// -60 days
-		// 	convertDateToMillis(today.adjust("D", -1).format(form)),	// -61 days
-		// 	convertDateToMillis(today.adjust("D", -30).format(form)),	// -90 days
-		// 	convertDateToMillis(today.adjust("D", -1).format(form)),	// -91 days
-		// 	convertDateToMillis(today.adjust("D", -30).format(form)),	// -120 days
-		// 	convertDateToMillis(today.adjust("D", -1).format(form)),	// -121 days
-		// 	convertDateToMillis(today.adjust("D", -30).format(form))	// -150 days
-		// 	// 0 															// epoch
-		// ];
+		var weekStart = today.adjust("D", -todaysDate.getDay());
+		var weekEnding = weekStart.clone().adjust("D", 6);
+
+
+		var endKey, startKey;
 
 
 		////
 		// Make it call every day for each day... and then redraw
 		// the chart at the end of computation of each day...
 		// this should make this thing appear faster....
-		var numDays = 150,
-			numCompleted = 150;
-		for (var i=0; i<numDays; i++) {
+		var num = MAX_WEEKS,
+			numCompleted = MAX_WEEKS,
+			columnCount = MAX_WEEKS;
+
+		for (var i=0; i<num; i++) {
 			// var dateBins = [
 			// 	convertDateToMillis(today.format(form)),					// today
 			// 	convertDateToMillis(today.adjust("D", -1).format(form))
 			// ]
+			var curDate = new Date(today.format(form));
+			var yearWeek = curDate.getYearWeek();
+			today.adjust("D", -7);
+			startKey = [yearWeek];
+			endKey = [yearWeek,{}];
 
-			var dateMillis = convertDateToMillis(today.format(form));
-			today.adjust("D", -1);
-			startKey = [dateMillis];
-			endKey = [dateMillis,{}];
-			callDateStats(service, startKey, endKey);
+			var range = weekStart.format(form) + " - "+ weekEnding.format(form);
+			weekStart.adjust("D", -7);
+			weekEnding.adjust("D", -7);
+
+			callDateStats(service, startKey, endKey, range, i);
 		}
 		
 		function completed(service) {
@@ -259,12 +234,12 @@ http://127.0.0.1:5984/resource_data/_design/lrstats-payload_schema/_view/docs?st
 				});
 
 			} else {
-				status.html("Progress for "+service+": "+(numDays-numCompleted)+" of "+numDays);
+				status.html("Progress for "+service+": "+(num-numCompleted)+" of "+num);
 			}
 		}
 
-		function callDateStats(service, startKey, endKey) {
-			$.couch.db(NODE_DB).list(getList("top-by-date"), "date-"+service, {
+		function callDateStats(service, startKey, endKey, range, column) {
+			$.couch.db(NODE_DB).list(getList("top-for-time"), service+"-week", {
 				startkey: startKey,
 				endkey: endKey,
 				group_level:2,
@@ -277,26 +252,20 @@ http://127.0.0.1:5984/resource_data/_design/lrstats-payload_schema/_view/docs?st
 					$.each(rows, function(index, row){
 						// console.log(row);
 
-						if (!dateBinnedData[row]) {
-							dateBinnedData[row.key[0]] = [0,0,0,0,0];
-						}
-						var rowage = convertAge(row.age);
-						if (rowage <= 30) {
-							dateBinnedData[row.key[0]][0]+=row.value;
-						} else if (rowage <= 60) {
-							dateBinnedData[row.key[0]][1]+=row.value;
-						} else if (rowage <= 90) {
-							dateBinnedData[row.key[0]][2]+=row.value;
-						} else if (rowage <= 120)  {
-							dateBinnedData[row.key[0]][3]+=row.value;
-						} else /* if (rowage <= 180) */ {
-							dateBinnedData[row.key[0]][4]+=row.value;
+						if (!treeMapData[row.key[1]]) {
+							treeMapData[row.key[1]] = { total: row.value, range: [[range, row.value]]}
+						} else {
+							treeMapData[row.key[1]].total += row.value;
+							treeMapData[row.key[1]].range.push([range, row.value]);
 						}
 						
 					});
 					// console.log(dateBinnedData);
 					// options[service].title = 'Learning Registry Usage Stats - ' + service;
-					buildChartData(dateBinnedData, service);
+					
+					buildTreeMapData(treeMapData, service);
+
+					// buildChartData(dateBinnedData, service, weekNum);
 					completed(service);
 				},
 				error: function(jqXHR, textStatus, errorThrown) {
@@ -308,74 +277,146 @@ http://127.0.0.1:5984/resource_data/_design/lrstats-payload_schema/_view/docs?st
 			});
 
 		}
-
-
 	}
 
+	function wrap(clazz, obj) {
+		return obj;
+	}
 
- 	//// JOHN'S Original
-	// function buildDateBins(chartRows, service) {
-	// 	var dateBinnedData = {};
-	// 	var resultCount = 0;
-	// 	var MAX_RESULTS = chartRows.length * 3;
+	function buildTreeMapData(treeMapData, service) {
+		var numRows = dataTables[service].getNumberOfRows();
+		dataTables[service].removeRows(0, numRows);
+		dataTables[service].addRow([service, null, 0, 0]);
+		
+		// dataTables[service].removeRows(0, numRows);
+		var tmp;
+		$.each(treeMapData, function(term, data) {
+			if (data.total > 0) {
+				tmp = [term, service, data.total, data.range.length];
+				console.log(JSON.stringify(tmp));
+				dataTables[service].addRow(tmp);
 
-	// 	$.each(chartRows, function(index, row) {
-	// 		dateBinnedData[row.key] = [];
-	// 	});
+				$.each(data.range, function(idx, element) {
+					if (element[1] == 0 ) {
+						console.log(JSON.stringify({idx: idx, element: element, treeMapData: treeMapData}));
+					} else {
+						tmp = [term + " : " +element[0], term, element[1], 0];
+						// console.log(JSON.stringify(tmp))
+						dataTables[service].addRow(tmp);
+					}
+				});
+			}
+		});
+		drawChart(service);
+	}
 
+	function buildDateBins(service) {
+		var dateBinnedData = {};
+		var resultCount = 0;
 
-	// 	var dateBins = [];
-	// 	var form = "yyyy-MM-dd";
-	// 	var today = $.date();
-	// 	dateBins[0] = today.format(form); // end 1
-	// 	dateBins[1] = today.adjust("D", -30).format(form); // start 1
-	// 	dateBins[2] = today.adjust("D", -1).format(form);
-	// 	dateBins[3] = today.adjust("D", -30).format(form);
-	// 	dateBins[4] = today.adjust("D", -1).format(form);
-	// 	dateBins[5] = "";
+		// var dateBins = [];
+		var form = "yyyy-MM-dd";
+		var today = $.date();
+		var todaysDate =  new Date(today.format(form));
+		var todaysYearWeek = todaysDate.getYearWeek();
 
-	// 	$.each(chartRows, function(index, row) {
-	// 		for (var i = 0; i < 3; i++) {
-	// 			var startKey = [row.key, dateBins[2 * i + 1]];
-	// 			var endKey = [row.key, dateBins[2 * i]];
-	// 			callDateStats(service, startKey, endKey, row.key, i);
-	// 		}
-	// 	});
-
-	// 	function callDateStats(service, startKey, endKey, term, index) {
-	// 		$.couch.db(NODE_DB).view(getViewOrList(service), {
-	// 			startkey: startKey,
-	// 			endkey: endKey,
-	// 			success: function(ajaxData) {
-	// 				var rows = ajaxData.rows;
-	// 				if (ajaxData.rows[0]) {
-	// 					dateBinnedData[term][index] = ajaxData.rows[0].value;
-	// 				} else {
-	// 					dateBinnedData[term][index] = 0;
-	// 				}
-	// 				resultCount++;
-	// 				if (resultCount == MAX_RESULTS) {
-	// 					buildChartData(dateBinnedData, service);
-	// 				}
-	// 			},
-	// 			error: function(jqXHR, textStatus, errorThrown) {
-	// 				debug("ajax error: " + errorThrown);
-	// 				debug("ajax error textStatus: " + textStatus);
-	// 				debug("ajax error jqXHR: " + JSON.stringify(jqXHR));
-	// 			}
-	// 		});
-
-	// 	}
+		var endKey, startKey;
 
 
-	// }
+		////
+		// Make it call every day for each day... and then redraw
+		// the chart at the end of computation of each day...
+		// this should make this thing appear faster....
+		var num = MAX_WEEKS,
+			numCompleted = MAX_WEEKS,
+			columnCount = MAX_WEEKS;
 
-	function buildChartData(dateBinnedData, service) {
+		for (var i=0; i<num; i++) {
+			// var dateBins = [
+			// 	convertDateToMillis(today.format(form)),					// today
+			// 	convertDateToMillis(today.adjust("D", -1).format(form))
+			// ]
+			var curDate = new Date(today.format(form));
+			var yearWeek = curDate.getYearWeek();
+			today.adjust("D", -7);
+			startKey = [yearWeek];
+			endKey = [yearWeek,{}];
+			callDateStats(service, startKey, endKey, yearWeek, i);
+		}
+		
+		function completed(service) {
+			var status = $('#status-' + service);
+			numCompleted--;
+			if (numCompleted === 0) {
+				status.html("Done!");
+				status.fadeOut(1000, function(){
+					$(this).remove();
+				});
+
+			} else {
+				status.html("Progress for "+service+": "+(num-numCompleted)+" of "+num);
+			}
+		}
+
+		function zeroArray(size) {
+			var a = [];
+			for (var i = 0; i < size; i++) {
+				a.push(0);
+			}
+			return a;
+		}
+
+		function callDateStats(service, startKey, endKey, weekNum, column) {
+			$.couch.db(NODE_DB).list(getList("top-for-time"), service+"-week", {
+				startkey: startKey,
+				endkey: endKey,
+				group_level:2,
+				reduce:true,
+				top_limit: MAX_ROWS,
+				stale:"update_after",
+
+				success: function(ajaxData) {
+					var rows = ajaxData.rows;
+					var total = 0;
+					$.each(rows, function(index, row){
+						// console.log(row);
+
+						if (!dateBinnedData[row.key[1]]) {
+							dateBinnedData[row.key[1]] = zeroArray(num);
+						}
+						total += row.value;
+						dateBinnedData[row.key[1]][column]+=row.value;
+						
+					});
+					// console.log(dateBinnedData);
+					// options[service].title = 'Learning Registry Usage Stats - ' + service;
+
+					buildChartData(dateBinnedData, service, weekNum);
+					completed(service);
+				},
+				error: function(jqXHR, textStatus, errorThrown) {
+					debug("ajax error: " + errorThrown);
+					debug("ajax error textStatus: " + textStatus);
+					debug("ajax error jqXHR: " + JSON.stringify(jqXHR));
+					completed(service);
+				}
+			});
+
+		}
+	}
+
+	function buildChartData(dateBinnedData, service, weekNum) {
 
 		var numRows = dataTables[service].getNumberOfRows();
 		dataTables[service].removeRows(0, numRows);
 		$.each(dateBinnedData, function(term, binnedData) {
-			dataTables[service].addRow([term].concat(binnedData));
+			var rowData = [term].concat(binnedData);
+			if (rowData.length != (MAX_WEEKS+1)) {
+				console.log("weekNum: "+ weekNum);
+				console.log("service: "+ service);
+				console.log("row: "+ JSON.stringify(rowData));
+			}
+			dataTables[service].addRow(rowData);
 		});
 		drawChart(service);
 	}
