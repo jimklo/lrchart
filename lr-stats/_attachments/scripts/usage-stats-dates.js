@@ -4,8 +4,12 @@
 	var services = [{svc:'submitter', x: 1200, y: 1000}, {svc:'payload_schema', x: 1200, y: 1000}, {svc:'curator', x: 1200, y: 1000}, {svc:'keyword', x: 1200, y: 3000}]; //, 'keyword'];
 	//var services = ['keyword'];//, 'keyword'];
 	var resultCount = 0;
-	var NODE_URL = "http://127.0.0.1:5984";
-	var NODE_DB = "resource_data_new";
+	var NODE_URL = "http://learnreg1.sri.com:5984";
+	var NODE_DB = "resource_data_only";
+
+	// var NODE_URL = "http://localhost:5984";
+	// var NODE_DB = "resource_data_new";
+
 	var NODE_DDOC = "lr-stats";
 
 	var ajaxPool = [];
@@ -43,7 +47,9 @@
 
 	}
 	function initTreeMap() {
-		$.couch.urlPrefix = NODE_URL;
+		if (NODE_URL) {
+			$.couch.urlPrefix = NODE_URL;
+		}
 		$.couch.defaultAjaxOpts = {
 			dataType: 'jsonp',
 			jsonp: 'callback'
@@ -55,7 +61,11 @@
 				title: 'Learning Registry Usage Stats - ' + service,
 				headerHeight: 15,
 				fontColor: 'black',
-				showScale: true
+				showScale: true,
+				minColorValue: 1,
+				minColor: "#AED0F2",
+				maxColor: "#F00"
+
 			};
 			dataTables[service] = new google.visualization.DataTable();
 			dataTables[service].addColumn('string', 'Term');
@@ -76,6 +86,7 @@
 				var count = dataTables[service].getValue(rowIndex.row, 2);
 				// console.log(term + ": "+ count);
 				$('#'+service+'_box div.info').html('<b>'+term+'</b><br/>Count: '+count);
+				options[service].title = service+': '+term+' - count: '+count;
 				// console.log(JSON.stringify(dataTables[service].getRowProperties(rowIndex.row)));
 				// console.log($('#'+service+'_box div.info').html());
 			});
@@ -83,6 +94,7 @@
 
 			google.visualization.events.addListener(charts[service], 'onmouseout', function(rowIndex) {
 				$('#'+service+'_box div.info').html('');
+				options[service].title = 'Learning Registry Usage Stats - ' + service;
 				// console.log("tooltip off");
 			});
 			startLoadingData(service);
@@ -90,65 +102,65 @@
 	}
 
 
-	function init() {
-		$.couch.urlPrefix = NODE_URL;
-		$.couch.defaultAjaxOpts = {
-			dataType: 'jsonp',
-			jsonp: 'callback'
-		};
-		$.each(services, function(index, servInfo) {
-			var service = servInfo.svc;
-			options[service] = {
-				width: servInfo.x,
-				height: servInfo.y,
-				title: 'Learning Registry Usage Stats - ' + service,
-				vAxis: {
-					title: 'Term',
-					titleTextStyle: {
-						color: 'red'
-					}
-				},
-				hAxis: {
-					logScale:true
-				},
-				legend: {
-					position: 'none'
-				}
-			};
-			dataTables[service] = new google.visualization.DataTable();
-			dataTables[service].addColumn('string', 'Term');
+	// function init() {
+	// 	$.couch.urlPrefix = NODE_URL;
+	// 	$.couch.defaultAjaxOpts = {
+	// 		dataType: 'jsonp',
+	// 		jsonp: 'callback'
+	// 	};
+	// 	$.each(services, function(index, servInfo) {
+	// 		var service = servInfo.svc;
+	// 		options[service] = {
+	// 			width: servInfo.x,
+	// 			height: servInfo.y,
+	// 			title: 'Learning Registry Usage Stats - ' + service,
+	// 			vAxis: {
+	// 				title: 'Term',
+	// 				titleTextStyle: {
+	// 					color: 'red'
+	// 				}
+	// 			},
+	// 			hAxis: {
+	// 				logScale:true
+	// 			},
+	// 			legend: {
+	// 				position: 'none'
+	// 			}
+	// 		};
+	// 		dataTables[service] = new google.visualization.DataTable();
+	// 		dataTables[service].addColumn('string', 'Term');
 			
-			var dateToday = new Date();
-			var today = $.date();
-			var form = "yyyy-MM-dd";
+	// 		var dateToday = new Date();
+	// 		var today = $.date();
+	// 		var form = "yyyy-MM-dd";
 
-			var weekOf = today.adjust("D", -dateToday.getDay());
-			var weekEnding = weekOf.clone().adjust("D", 6);
+	// 		var weekOf = today.adjust("D", -dateToday.getDay());
+	// 		var weekEnding = weekOf.clone().adjust("D", 6);
 
 
-			for (var i=0; i<MAX_WEEKS; i++) {
-				var mesg = " weeks ago";
-				if (i===0) {
-					mesg = "This week";
-				} else if (i===1) {
-					mesg = "1 week ago";
-				} else {
-					mesg = i + mesg;
-				}
+	// 		for (var i=0; i<MAX_WEEKS; i++) {
+	// 			var mesg = " weeks ago";
+	// 			if (i===0) {
+	// 				mesg = "This week";
+	// 			} else if (i===1) {
+	// 				mesg = "1 week ago";
+	// 			} else {
+	// 				mesg = i + mesg;
+	// 			}
 
-				dataTables[service].addColumn('number', weekOf.format(form) + " - "+ weekEnding.format(form));
-				weekOf.adjust("D", -7);
-				weekEnding.adjust("D", -7);
-			}
+	// 			dataTables[service].addColumn('number', weekOf.format(form) + " - "+ weekEnding.format(form));
+	// 			weekOf.adjust("D", -7);
+	// 			weekEnding.adjust("D", -7);
+	// 		}
 			
-			var div_name = 'chart-' + service;
-			var div_status = 'status-' + service;
-			$('#charts').append('<div id="'+div_status+'">Updating!</div><div id="' + div_name + '"></div>');
-			charts[service] = new google.visualization.BarChart(document.getElementById(div_name));
-			drawChart(service);
-			startLoadingData(service);
-		});
-	}
+	// 		var div_name = 'chart-' + service;
+	// 		var div_status = 'status-' + service;
+	// 		$('#charts').append('<div id="'+div_status+'">Updating!</div><div id="' + div_name + '"></div>');
+	// 		charts[service] = new google.visualization.BarChart(document.getElementById(div_name));
+	// 		drawChart(service);
+	// 		startLoadingData(service);
+	// 	});
+	// }
 
 
 	function getView(name) {
@@ -191,8 +203,8 @@ function buildTreeMap(service) {
 		var todaysDate =  new Date(today.format(form));
 		var todaysYearWeek = todaysDate.getYearWeek();
 
-		var weekStart = today.adjust("D", -todaysDate.getDay());
-		var weekEnding = weekStart.clone().adjust("D", 6);
+		var weekStart = today.clone().adjust("D", -(todaysDate.getDay()+1));
+		var weekEnding = today.clone().adjust("D", 5-todaysDate.getDay());
 
 
 		var endKey, startKey;
@@ -220,7 +232,7 @@ function buildTreeMap(service) {
 			var range = weekStart.format(form) + " - "+ weekEnding.format(form);
 			weekStart.adjust("D", -7);
 			weekEnding.adjust("D", -7);
-
+			// console.log(JSON.stringify([service, yearWeek, range]));
 			callDateStats(service, startKey, endKey, range, i);
 		}
 		
@@ -292,15 +304,15 @@ function buildTreeMap(service) {
 		var tmp;
 		$.each(treeMapData, function(term, data) {
 			if (data.total > 0) {
-				tmp = [term, service, data.total, data.range.length];
-				console.log(JSON.stringify(tmp));
+				tmp = [term, service, data.total, 0];
+				// console.log(JSON.stringify(tmp));
 				dataTables[service].addRow(tmp);
 
 				$.each(data.range, function(idx, element) {
 					if (element[1] == 0 ) {
-						console.log(JSON.stringify({idx: idx, element: element, treeMapData: treeMapData}));
+						// console.log(JSON.stringify({idx: idx, element: element, treeMapData: treeMapData}));
 					} else {
-						tmp = [term + " : " +element[0], term, element[1], 0];
+						tmp = [term + " : " +element[0], term, element[1], data.range.length];
 						// console.log(JSON.stringify(tmp))
 						dataTables[service].addRow(tmp);
 					}
@@ -412,9 +424,9 @@ function buildTreeMap(service) {
 		$.each(dateBinnedData, function(term, binnedData) {
 			var rowData = [term].concat(binnedData);
 			if (rowData.length != (MAX_WEEKS+1)) {
-				console.log("weekNum: "+ weekNum);
-				console.log("service: "+ service);
-				console.log("row: "+ JSON.stringify(rowData));
+				// console.log("weekNum: "+ weekNum);
+				// console.log("service: "+ service);
+				// console.log("row: "+ JSON.stringify(rowData));
 			}
 			dataTables[service].addRow(rowData);
 		});
