@@ -1,18 +1,25 @@
 <html>
   <head>
-    <link rel="stylesheet" type="text/css" href="scripts/stats.css">
+    <link rel="stylesheet" type="text/css" href="css/smoothness/jquery-ui-1.8.19.custom.css">
+    <link rel="stylesheet" type="text/css" href="css/stats.css">
     <!--<script type="text/javascript" src="barchart.js"></script>-->
   </head>
   <!-- <body onload="startLoadingData();"> -->
   <body>
-    <div id="charts"></div>
+    <h1 class="title">Learning Registry Statistics</h1>
+    <div id="charts">
+      <ul class="nav"></ul>
+    </div>
+    <div id="charts_offscreen" class="offscreen">
+    </div>
     <div id="chart_div"></div>
     <div id="debug2"></div>
     <div id="debug"></div>
     <div id="tooltip"></div>
   </body>
   <script type="text/javascript" src="https://www.google.com/jsapi"></script>
-  <script type="text/javascript" src="scripts/jquery-1.6.2.js"></script>
+  <script type="text/javascript" src="scripts/jquery-1.7.2.min.js"></script>
+  <script type="text/javascript" src="scripts/jquery-ui-1.8.19.custom.min.js"></script>
   <script type="text/javascript" src="scripts/jquery.glob.js"></script>
   <script type="text/javascript" src="scripts/jquery.couch-patched.js"></script>
   <script type="text/javascript" src="scripts/date.js"></script>

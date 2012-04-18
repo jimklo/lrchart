@@ -1,0 +1,73 @@
+div.treeMap {
+    width: 1000px;
+    height: 800px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.offscreen {
+    position: absolute;
+    right: 101%;
+}
+
+div.status {
+    width: 480px;
+    float: right;
+    vertical-align: top;
+}
+
+#tooltip {
+    display: none;
+    z-index:10;
+    background-color: #CCC;
+    position: fixed;
+}
+
+#tooltip.on {
+    display: block;
+}
+
+div.infobox {
+    font-size: 12px;
+    width: 980px;
+    min-height: 35px;
+    display: block;
+    border: 1px solid #999;
+    padding: 4px;
+    margin-right: auto;
+    margin-left: auto;
+}
+
+div.infobox b {
+    text-transform:capitalize;
+    font-variant: small-caps;
+}
+
+div.chart_box {
+    width: 1000px;
+    margin: 20px 0px;
+}
+
+div.chart_box .ui-tabs-nav {
+    font-size: 30px;
+}
+
+div.info {
+    float: left;
+    width: 490px;
+}
+
+div.clear {
+    clear: both;
+}
+
+body {
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+h1.title {
+    font-variant: small-caps;
+    font-size: 20px;
+    text-align: center;
+}
+

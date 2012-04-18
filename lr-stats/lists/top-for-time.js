@@ -9,7 +9,41 @@ function(head, req) {
     var limit = (req.query.top_limit)? req.query.top_limit : 10;
 
     var isDateCode = (req.query.datecode) ? req.query.datecode : false;
-    
+
+    var exclude = [];
+
+    function parseRegexList(list) {
+        if (Object.prototype.toString.apply(list) === "[object Array]") {
+
+        }
+
+    }
+
+    try {
+        if (req.query["exclude"]) {
+            var parsed = JSON.parse(req.query.exclude);
+            if (Object.prototype.toString.apply(parsed) === "[object Array]") {
+                for (var i=0; i<parsed.length; i++) {
+                    if (Object.prototype.toString.apply(parsed[i]) === "[object Array]") {
+                        if (parsed[i].length === 2) {
+                            exclude.push(new RegExp(parsed[i][0], parsed[i][1]));
+                        } else if (parsed[i].length === 1) {
+                            exclude.push(RegExp(parsed[i][0]));
+                        }
+                    } else if (Object.prototype.toString.apply(parsed[i]) === "[object String]") {
+                        exclude.push(RegExp(parsed[i]));
+                    }
+                }
+            }            
+        }
+    } catch (e) {
+        send(JSON.stringify({ error: e}));
+        return;
+    }
+
+
+
+
     var default_age = 0,
         start_date = 0,
         end_date = now;
@@ -43,6 +77,24 @@ function(head, req) {
     function revSort(a, b) {
         return b-a;
     }
+
+    function excludeTerm(term) {
+        for (var i=0; i < exclude.length; i++) {
+            if (exclude[i].test(term)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function excludeKey(row1) {
+        if (row1.key.length >= 2) {
+            return excludeTerm(row1.key[1]);
+        } else {
+            return false;
+        }
+    }
+
 
     // function addAge(row1) {
     //     try {
@@ -103,7 +155,9 @@ function(head, req) {
 
     var row;
     while( row = getRow()) {
-        collateTop(row);
+        if (!excludeKey(row)){
+            collateTop(row);
+        }
     }  
 
 
